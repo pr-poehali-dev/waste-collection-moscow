@@ -1,75 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
-
-const wasteCategories = [
-  {
-    id: 'batteries',
-    name: 'Батареи и аккумуляторы',
-    icon: 'Battery',
-    color: 'bg-yellow-100 text-yellow-700',
-    image: 'https://cdn.poehali.dev/projects/d3be30ee-5229-45ad-8f27-d48a76e25e47/files/9280aa9e-e0ab-4234-9f3e-3392ef0880c7.jpg',
-    description: 'Приём батареек, аккумуляторов, источников питания',
-    points: [
-      { name: 'ЭкоЦентр на Варшавке', address: 'Варшавское шоссе, 33', metro: 'Нагатинская', hours: '10:00-20:00' },
-      { name: 'Пункт приёма Вторая Жизнь', address: 'ул. Профсоюзная, 45', metro: 'Профсоюзная', hours: '09:00-21:00' },
-      { name: 'ГринПоинт Юго-Запад', address: 'Ленинский просп., 82', metro: 'Юго-Западная', hours: '08:00-22:00' }
-    ]
-  },
-  {
-    id: 'textiles',
-    name: 'Текстиль и одежда',
-    icon: 'Shirt',
-    color: 'bg-pink-100 text-pink-700',
-    image: 'https://cdn.poehali.dev/projects/d3be30ee-5229-45ad-8f27-d48a76e25e47/files/be398764-dd02-4c68-a2d9-91551f1865f4.jpg',
-    description: 'Старая одежда, обувь, текстильные изделия',
-    points: [
-      { name: 'Charity Shop', address: 'Тверская ул., 12', metro: 'Тверская', hours: '11:00-19:00' },
-      { name: 'Второй Шанс', address: 'ул. Арбат, 28', metro: 'Арбатская', hours: '10:00-20:00' },
-      { name: 'БлагоДар', address: 'Кутузовский просп., 15', metro: 'Кутузовская', hours: '09:00-18:00' }
-    ]
-  },
-  {
-    id: 'tires',
-    name: 'Шины',
-    icon: 'Circle',
-    color: 'bg-slate-100 text-slate-700',
-    image: 'https://cdn.poehali.dev/projects/d3be30ee-5229-45ad-8f27-d48a76e25e47/files/9b1de424-10ff-4501-958b-28a1d72d2d12.jpg',
-    description: 'Автомобильные и велосипедные покрышки',
-    points: [
-      { name: 'ШиноПрием', address: 'МКАД 47 км', metro: 'Выхино', hours: '08:00-20:00' },
-      { name: 'ЭкоШина', address: 'Каширское шоссе, 112', metro: 'Домодедовская', hours: '09:00-19:00' }
-    ]
-  },
-  {
-    id: 'lamps',
-    name: 'Ртутные лампы',
-    icon: 'Lightbulb',
-    color: 'bg-orange-100 text-orange-700',
-    image: 'https://cdn.poehali.dev/projects/d3be30ee-5229-45ad-8f27-d48a76e25e47/files/9b1de424-10ff-4501-958b-28a1d72d2d12.jpg',
-    description: 'Энергосберегающие и люминесцентные лампы',
-    points: [
-      { name: 'ЭкоЛампа', address: 'ул. Гарибальди, 23', metro: 'Новые Черёмушки', hours: '10:00-18:00' },
-      { name: 'БезОпасность', address: 'Дмитровское шоссе, 71', metro: 'Петровско-Разумовская', hours: '09:00-20:00' }
-    ]
-  },
-  {
-    id: 'oil',
-    name: 'ГСМ',
-    icon: 'Fuel',
-    color: 'bg-blue-100 text-blue-700',
-    image: 'https://cdn.poehali.dev/projects/d3be30ee-5229-45ad-8f27-d48a76e25e47/files/9b1de424-10ff-4501-958b-28a1d72d2d12.jpg',
-    description: 'Отработанное масло, топливо, смазочные материалы',
-    points: [
-      { name: 'МаслоСбор', address: 'ул. Автозаводская, 16', metro: 'Автозаводская', hours: '08:00-17:00' },
-      { name: 'ЭкоНефть', address: 'Волгоградский просп., 42', metro: 'Текстильщики', hours: '09:00-18:00' }
-    ]
-  }
-];
+import MapWidget from '@/components/MapWidget';
 
 const faqs = [
   {
@@ -94,9 +31,69 @@ const faqs = [
   }
 ];
 
+interface CollectionPoint {
+  id: number;
+  name: string;
+  address: string;
+  metro: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  hours: string | null;
+  phone: string | null;
+  categories: Array<{
+    id: number;
+    code: string;
+    name: string;
+    icon: string;
+    color: string;
+    description: string;
+  }>;
+}
+
+interface Category {
+  id: number;
+  code: string;
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  pointsCount: number;
+}
+
 export default function Index() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('map');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [points, setPoints] = useState<CollectionPoint[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCategories();
+    fetchPoints();
+  }, []);
+
+  useEffect(() => {
+    fetchPoints();
+  }, [selectedCategory, searchQuery]);
+
+  const fetchCategories = async () => {
+    const response = await fetch('https://functions.poehali.dev/853c50af-96f2-4046-80a5-b37a7859b789');
+    const data = await response.json();
+    setCategories(data.categories);
+  };
+
+  const fetchPoints = async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (selectedCategory) params.append('category_id', selectedCategory.toString());
+    if (searchQuery) params.append('search', searchQuery);
+    
+    const response = await fetch(`https://functions.poehali.dev/22ec9c51-ea8a-4b82-9fbd-1ba63178de1e?${params}`);
+    const data = await response.json();
+    setPoints(data.points);
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-muted">
@@ -187,7 +184,16 @@ export default function Index() {
           <Card className="p-6">
             <div className="mb-6">
               <h3 className="text-2xl font-bold mb-2">Интерактивная карта пунктов приёма</h3>
-              <p className="text-muted-foreground">Выберите категорию отходов, чтобы увидеть ближайшие пункты приёма</p>
+              <p className="text-muted-foreground">Выберите категорию отходов или введите адрес для поиска</p>
+            </div>
+
+            <div className="mb-6">
+              <Input
+                placeholder="Поиск по адресу, метро или названию..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-md"
+              />
             </div>
             
             <div className="flex gap-2 mb-6 flex-wrap">
@@ -198,7 +204,7 @@ export default function Index() {
               >
                 Все категории
               </Button>
-              {wasteCategories.map(cat => (
+              {categories.map(cat => (
                 <Button
                   key={cat.id}
                   variant={selectedCategory === cat.id ? 'default' : 'outline'}
@@ -212,76 +218,62 @@ export default function Index() {
               ))}
             </div>
 
-            <div className="bg-muted rounded-lg overflow-hidden mb-6" style={{ height: '500px' }}>
-              <div className="w-full h-full flex items-center justify-center relative bg-gradient-to-br from-green-50 to-blue-50">
-                <div className="absolute inset-0 opacity-10">
-                  <svg className="w-full h-full" viewBox="0 0 800 600">
-                    <circle cx="200" cy="150" r="8" fill="#10b981" />
-                    <circle cx="350" cy="200" r="8" fill="#10b981" />
-                    <circle cx="500" cy="180" r="8" fill="#10b981" />
-                    <circle cx="300" cy="350" r="8" fill="#10b981" />
-                    <circle cx="450" cy="400" r="8" fill="#10b981" />
-                    <circle cx="600" cy="300" r="8" fill="#10b981" />
-                    <circle cx="250" cy="450" r="8" fill="#10b981" />
-                    <path d="M 100 100 Q 400 50 700 150" stroke="#059669" strokeWidth="2" fill="none" opacity="0.3" />
-                    <path d="M 150 500 Q 400 400 650 450" stroke="#059669" strokeWidth="2" fill="none" opacity="0.3" />
-                  </svg>
-                </div>
-                <div className="text-center z-10">
-                  <Icon name="Map" size={64} className="text-primary mx-auto mb-4" />
-                  <h4 className="text-xl font-semibold mb-2">Интерактивная карта Москвы</h4>
-                  <p className="text-muted-foreground max-w-md">
-                    {selectedCategory 
-                      ? `Показаны пункты приёма: ${wasteCategories.find(c => c.id === selectedCategory)?.name}`
-                      : 'Здесь будет отображена карта с пунктами приёма отходов по всей Москве'
-                    }
-                  </p>
-                </div>
-              </div>
+            <div className="mb-6">
+              <MapWidget points={points} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {wasteCategories
-                .filter(cat => selectedCategory === null || cat.id === selectedCategory)
-                .flatMap(cat => cat.points.map(point => ({...point, category: cat})))
-                .map((point, idx) => (
-                  <Card key={idx} className="p-4 hover:shadow-lg transition-shadow">
+              {loading ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">Загрузка...</p>
+                </div>
+              ) : points.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">Пункты приёма не найдены</p>
+                </div>
+              ) : (
+                points.map((point) => (
+                  <Card key={point.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-full ${point.category.color} flex items-center justify-center flex-shrink-0`}>
-                        <Icon name={point.category.icon as any} size={20} />
+                      <div className={`w-10 h-10 rounded-full ${point.categories[0]?.color} flex items-center justify-center flex-shrink-0`}>
+                        <Icon name={point.categories[0]?.icon as any} size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold mb-1 truncate">{point.name}</h4>
                         <p className="text-sm text-muted-foreground mb-2">{point.address}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                          <Icon name="Train" size={12} />
-                          <span>{point.metro}</span>
+                        {point.metro && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <Icon name="Train" size={12} />
+                            <span>{point.metro}</span>
+                          </div>
+                        )}
+                        {point.hours && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Icon name="Clock" size={12} />
+                            <span>{point.hours}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {point.categories.map((cat) => (
+                            <Badge key={cat.id} variant="secondary" className="text-xs">
+                              {cat.name}
+                            </Badge>
+                          ))}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Icon name="Clock" size={12} />
-                          <span>{point.hours}</span>
-                        </div>
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                          {point.category.name}
-                        </Badge>
                       </div>
                     </div>
                   </Card>
-                ))}
+                ))
+              )}
             </div>
           </Card>
         </TabsContent>
 
         <TabsContent value="categories" className="animate-fade-in">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {wasteCategories.map((category, idx) => (
+            {categories.map((category, idx) => (
               <Card key={category.id} className="overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 animate-scale-in" style={{ animationDelay: `${idx * 100}ms` }}>
-                <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={category.image} 
-                    alt={category.name}
-                    className="w-full h-full object-cover transition-transform hover:scale-110"
-                  />
+                <div className="relative h-48 overflow-hidden bg-gradient-to-br from-green-50 to-blue-50">
                   <div className={`absolute top-4 right-4 w-12 h-12 rounded-full ${category.color} flex items-center justify-center shadow-lg`}>
                     <Icon name={category.icon as any} size={24} />
                   </div>
@@ -292,7 +284,7 @@ export default function Index() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Icon name="MapPin" size={16} className="text-primary" />
-                      <span>{category.points.length} пунктов приёма</span>
+                      <span>{category.pointsCount} пунктов приёма</span>
                     </div>
                   </div>
                   <Button 

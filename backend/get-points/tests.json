@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "name": "Get all collection points",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "points": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get points by category",
+      "method": "GET",
+      "path": "/?category_id=1",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "points": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Search points",
+      "method": "GET",
+      "path": "/?search=эко",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "points": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
