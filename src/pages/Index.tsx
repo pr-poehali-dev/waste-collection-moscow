@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import MapWidget from '@/components/MapWidget';
+import SuggestPointForm from '@/components/SuggestPointForm';
 
 const faqs = [
   {
@@ -481,6 +482,11 @@ export default function Index() {
           </div>
         </div>
       </footer>
+
+      <SuggestPointForm 
+        categories={categories.map(cat => ({ id: cat.id, name: cat.name }))}
+        onSuccess={fetchPoints}
+      />
     </div>
   );
 }

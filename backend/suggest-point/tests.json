@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "Успешное добавление предложения",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "category_id": 1,
+        "name": "Новый пункт приёма",
+        "address": "ул. Тестовая, 123",
+        "metro": "Тестовская",
+        "hours": "10:00-18:00",
+        "phone": "+7 (999) 123-45-67",
+        "email": "test@example.com",
+        "user_name": "Иван Петров",
+        "user_contact": "ivan@mail.ru",
+        "comment": "Пункт работает круглосуточно"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "success": true,
+        "id": "number",
+        "created_at": "string",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Минимальные данные",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "category_id": 2,
+        "name": "Мини пункт",
+        "address": "Короткая улица, 1"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
