@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,6 +63,7 @@ interface Category {
 }
 
 export default function Index() {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('map');
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +112,7 @@ export default function Index() {
                 <p className="text-sm text-muted-foreground">Сортировка отходов для чистого города</p>
               </div>
             </div>
-            <nav className="hidden md:flex gap-6">
+            <nav className="hidden md:flex gap-6 items-center">
               <Button variant="ghost" onClick={() => setActiveTab('map')}>
                 <Icon name="MapPin" className="mr-2" size={18} />
                 Карта
@@ -126,6 +128,10 @@ export default function Index() {
               <Button variant="ghost" onClick={() => setActiveTab('faq')}>
                 <Icon name="HelpCircle" className="mr-2" size={18} />
                 FAQ
+              </Button>
+              <Button variant="default" size="sm" onClick={() => navigate('/eco-scanner')} className="gap-2">
+                <Icon name="ScanLine" size={16} />
+                Сканер
               </Button>
             </nav>
           </div>
@@ -147,7 +153,7 @@ export default function Index() {
               Найди ближайший пункт приёма на интерактивной карте Москвы. 
               Батареи, текстиль, шины, лампы и ГСМ — всё это можно переработать!
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <Button size="lg" className="gap-2" onClick={() => setActiveTab('map')}>
                 <Icon name="Map" size={20} />
                 Открыть карту
@@ -155,6 +161,10 @@ export default function Index() {
               <Button size="lg" variant="outline" className="gap-2" onClick={() => setActiveTab('categories')}>
                 <Icon name="List" size={20} />
                 Категории отходов
+              </Button>
+              <Button size="lg" variant="secondary" className="gap-2" onClick={() => navigate('/eco-scanner')}>
+                <Icon name="ScanLine" size={20} />
+                Эко-сканер
               </Button>
             </div>
           </div>
@@ -213,7 +223,7 @@ export default function Index() {
                   onClick={() => setSelectedCategory(cat.id)}
                   className="gap-2"
                 >
-                  <Icon name={cat.icon as any} size={16} />
+                  <Icon name={cat.icon as Parameters<typeof Icon>[0]['name']} size={16} />
                   {cat.name}
                 </Button>
               ))}
@@ -237,7 +247,7 @@ export default function Index() {
                   <Card key={point.id} className="p-4 hover:shadow-lg transition-shadow">
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-full ${point.categories[0]?.color} flex items-center justify-center flex-shrink-0`}>
-                        <Icon name={point.categories[0]?.icon as any} size={20} />
+                        <Icon name={point.categories[0]?.icon as Parameters<typeof Icon>[0]['name']} size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold mb-1 truncate">{point.name}</h4>
@@ -276,7 +286,7 @@ export default function Index() {
               <Card key={category.id} className="overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 animate-scale-in" style={{ animationDelay: `${idx * 100}ms` }}>
                 <div className="relative h-48 overflow-hidden bg-gradient-to-br from-green-50 to-blue-50">
                   <div className={`absolute top-4 right-4 w-12 h-12 rounded-full ${category.color} flex items-center justify-center shadow-lg`}>
-                    <Icon name={category.icon as any} size={24} />
+                    <Icon name={category.icon as Parameters<typeof Icon>[0]['name']} size={24} />
                   </div>
                 </div>
                 <div className="p-6">
