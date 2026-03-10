@@ -9,7 +9,10 @@ interface MapWidgetProps {
     address: string;
     latitude: number | null;
     longitude: number | null;
+    phone?: string | null;
+    hours?: string | null;
     categories: Array<{
+      code?: string;
       name: string;
       color: string;
     }>;
@@ -95,29 +98,73 @@ export default function MapWidget({ points }: MapWidgetProps) {
 
       mapInstanceRef.current = map;
 
+      const categoryPreset: Record<string, string> = {
+          batteries:   'islands#yellowDotIcon',
+          lamps:       'islands#orangeDotIcon',
+          dangerous:   'islands#redDotIcon',
+          oil:         'islands#darkBlueDotIcon',
+          tires:       'islands#blackDotIcon',
+          textiles:    'islands#pinkDotIcon',
+          toys:        'islands#violetDotIcon',
+          electronics: 'islands#darkOrangeDotIcon',
+          plastic:     'islands#blueDotIcon',
+          glass:       'islands#cyanDotIcon',
+          paper:       'islands#brownDotIcon',
+          metal:       'islands#grayDotIcon',
+          mixed:       'islands#greenDotIcon',
+        };
+
+      const categoryBadgeColor: Record<string, string> = {
+          batteries:   '#fef3c7; color: #92400e',
+          lamps:       '#ffedd5; color: #9a3412',
+          dangerous:   '#fee2e2; color: #991b1b',
+          oil:         '#dbeafe; color: #1e40af',
+          tires:       '#f3f4f6; color: #374151',
+          textiles:    '#fce7f3; color: #9d174d',
+          toys:        '#ede9fe; color: #5b21b6',
+          electronics: '#e0e7ff; color: #3730a3',
+          plastic:     '#dbeafe; color: #1d4ed8',
+          glass:       '#cffafe; color: #0e7490',
+          paper:       '#fef9c3; color: #854d0e',
+          metal:       '#f3f4f6; color: #374151',
+          mixed:       '#d1fae5; color: #047857',
+        };
+
       points.forEach((point) => {
         if (point.latitude && point.longitude) {
+          const primaryCode = point.categories[0]?.code || 'mixed';
+          const preset = categoryPreset[primaryCode] || 'islands#greenDotIcon';
+
+          const badgesHtml = point.categories.map(cat => {
+            const code = cat.code || 'mixed';
+            const style = categoryBadgeColor[code] || '#d1fae5; color: #047857';
+            return `<span style="font-size:11px;padding:3px 8px;border-radius:4px;background:${style};">${cat.name}</span>`;
+          }).join('');
+
+          const phoneHtml = point.phone
+            ? `<p style="margin:4px 0 8px;font-size:12px;color:#555;">📞 ${point.phone}</p>`
+            : '';
+          const hoursHtml = point.hours
+            ? `<p style="margin:4px 0 8px;font-size:12px;color:#555;">🕐 ${point.hours}</p>`
+            : '';
+
           const placemark = new window.ymaps.Placemark(
             [point.latitude, point.longitude],
             {
               balloonContent: `
-                <div style="padding: 8px; max-width: 280px;">
-                  <h4 style="margin: 0 0 8px 0; font-weight: 600; font-size: 15px;">${point.name}</h4>
-                  <p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">${point.address}</p>
-                  <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
-                    ${point.categories.map(cat => `<span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #e5f5f0; color: #047857;">${cat.name}</span>`).join('')}
-                  </div>
-                  <button 
-                    id="route-btn-${point.id}" 
-                    style="width: 100%; padding: 8px 16px; background: #047857; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;"
-                  >
+                <div style="padding:8px;max-width:300px;">
+                  <h4 style="margin:0 0 4px;font-weight:600;font-size:15px;">${point.name}</h4>
+                  <p style="margin:0 0 4px;font-size:13px;color:#666;">📍 ${point.address}</p>
+                  ${phoneHtml}${hoursHtml}
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;">${badgesHtml}</div>
+                  <button id="route-btn-${point.id}" style="width:100%;padding:8px 16px;background:#047857;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">
                     Построить маршрут
                   </button>
                 </div>
               `,
             },
             {
-              preset: 'islands#greenDotIcon',
+              preset,
             }
           );
 
