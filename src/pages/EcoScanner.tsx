@@ -4,28 +4,158 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
+import { createWorker } from 'tesseract.js';
 
-type ScanStatus = 'idle' | 'scanning' | 'loading' | 'result' | 'error';
+type ScanStatus = 'idle' | 'loading' | 'result' | 'error';
+type VerdictType = 'recyclable' | 'trash' | 'special' | 'textile';
 
-type VerdictType = 'recyclable' | 'trash' | 'special' | 'textile' | 'partial';
-
-interface ScanResult {
-  status: 'success' | 'partial' | 'error';
-  error_type?: string;
-  message?: string;
-  code?: number;
-  material_code?: string;
-  material_name?: string;
-  examples?: string;
-  verdict?: VerdictType;
-  instruction?: string;
-  container?: string;
-  icon?: string;
-  confidence?: string;
-  found_symbol?: boolean;
+interface MaterialInfo {
+  code: number;
+  material_code: string;
+  material_name: string;
+  examples: string;
+  verdict: VerdictType;
+  instruction: string;
+  container: string;
 }
 
-const SCAN_LABEL_URL = 'https://functions.poehali.dev/568abbff-eb71-4224-a344-213c46f0ceee';
+const MATERIALS: MaterialInfo[] = [
+  {
+    code: 1,
+    material_code: 'PET / PETE',
+    material_name: 'Полиэтилентерефталат',
+    examples: 'Бутылки для воды, газировки, масла',
+    verdict: 'recyclable',
+    instruction: 'Сдай в пункт приёма. Перед сдачей сполосни и сомни бутылку.',
+    container: 'Синий контейнер для пластика',
+  },
+  {
+    code: 2,
+    material_code: 'HDPE / PE-HD',
+    material_name: 'Полиэтилен высокой плотности',
+    examples: 'Канистры, флаконы шампуней, пакеты из супермаркета',
+    verdict: 'recyclable',
+    instruction: 'Хорошо перерабатывается. Сполосни и сдай в пункт приёма.',
+    container: 'Синий контейнер для пластика',
+  },
+  {
+    code: 3,
+    material_code: 'PVC / V',
+    material_name: 'Поливинилхлорид',
+    examples: 'Трубы, плёнки, оконные профили',
+    verdict: 'special',
+    instruction: 'Не бросай в обычный мусор — выделяет токсины. Ищи специальный пункт приёма ПВХ.',
+    container: 'Специализированный пункт',
+  },
+  {
+    code: 4,
+    material_code: 'LDPE / PE-LD',
+    material_name: 'Полиэтилен низкой плотности',
+    examples: 'Пакеты, плёнки, пузырчатая упаковка',
+    verdict: 'recyclable',
+    instruction: 'Принимают не везде. Уточни в ближайшем пункте приёма.',
+    container: 'Синий контейнер (проверь заранее)',
+  },
+  {
+    code: 5,
+    material_code: 'PP',
+    material_name: 'Полипропилен',
+    examples: 'Контейнеры для еды, крышки, стаканчики',
+    verdict: 'recyclable',
+    instruction: 'Хорошо перерабатывается. Сполосни и сдай в пункт приёма.',
+    container: 'Синий контейнер для пластика',
+  },
+  {
+    code: 6,
+    material_code: 'PS',
+    material_name: 'Полистирол',
+    examples: 'Одноразовые стаканы, лотки, пенопласт',
+    verdict: 'trash',
+    instruction: 'Перерабатывается редко. Выброси в общий мусор, избегай повторного использования.',
+    container: 'Серый контейнер (общий мусор)',
+  },
+  {
+    code: 7,
+    material_code: 'OTHER / O',
+    material_name: 'Прочие пластики',
+    examples: 'Поликарбонат, акрил, смешанные пластики',
+    verdict: 'trash',
+    instruction: 'Сложный состав — не перерабатывается. Выброси в общий мусор.',
+    container: 'Серый контейнер (общий мусор)',
+  },
+  {
+    code: 20,
+    material_code: 'PAP / C/PAP',
+    material_name: 'Картон / тетрапак',
+    examples: 'Коробки, упаковки молока и сока',
+    verdict: 'recyclable',
+    instruction: 'Расплющи и сдай в пункт приёма макулатуры. Тетрапак — в специальный контейнер.',
+    container: 'Жёлтый контейнер для бумаги',
+  },
+  {
+    code: 21,
+    material_code: 'PAP',
+    material_name: 'Бумага',
+    examples: 'Газеты, журналы, офисная бумага',
+    verdict: 'recyclable',
+    instruction: 'Сдай в пункт приёма макулатуры или в жёлтый контейнер.',
+    container: 'Жёлтый контейнер для бумаги',
+  },
+  {
+    code: 40,
+    material_code: 'FE',
+    material_name: 'Сталь / жесть',
+    examples: 'Консервные банки, крышки',
+    verdict: 'recyclable',
+    instruction: 'Сполосни и сдай в пункт приёма металла или в контейнер.',
+    container: 'Контейнер для металла',
+  },
+  {
+    code: 41,
+    material_code: 'ALU',
+    material_name: 'Алюминий',
+    examples: 'Банки от пива и газировки, фольга',
+    verdict: 'recyclable',
+    instruction: 'Сомни и сдай в пункт приёма. Алюминий ценное сырьё!',
+    container: 'Контейнер для металла',
+  },
+  {
+    code: 70,
+    material_code: 'GL',
+    material_name: 'Бесцветное стекло',
+    examples: 'Прозрачные бутылки, банки',
+    verdict: 'recyclable',
+    instruction: 'Сдай в контейнер для стекла. Крышку сними.',
+    container: 'Зелёный контейнер для стекла',
+  },
+  {
+    code: 71,
+    material_code: 'GL',
+    material_name: 'Зелёное стекло',
+    examples: 'Зелёные бутылки',
+    verdict: 'recyclable',
+    instruction: 'Сдай в контейнер для стекла. Крышку сними.',
+    container: 'Зелёный контейнер для стекла',
+  },
+  {
+    code: 72,
+    material_code: 'GL',
+    material_name: 'Коричневое стекло',
+    examples: 'Тёмные бутылки (пиво, лекарства)',
+    verdict: 'recyclable',
+    instruction: 'Сдай в контейнер для стекла. Крышку сними.',
+    container: 'Зелёный контейнер для стекла',
+  },
+  {
+    code: 60,
+    material_code: 'TEX',
+    material_name: 'Текстиль',
+    examples: 'Одежда, ткани, постельное бельё',
+    verdict: 'textile',
+    instruction: 'Чистую одежду сдай в контейнер для текстиля или отнеси в секонд-хенд.',
+    container: 'Контейнер для одежды',
+  },
+];
 
 const verdictConfig: Record<VerdictType, { label: string; color: string; bg: string; icon: string }> = {
   recyclable: {
@@ -52,48 +182,68 @@ const verdictConfig: Record<VerdictType, { label: string; color: string; bg: str
     bg: 'bg-blue-50 border-blue-200',
     icon: 'Shirt',
   },
-  partial: {
-    label: 'Требует уточнения',
-    color: 'text-orange-700',
-    bg: 'bg-orange-50 border-orange-200',
-    icon: 'HelpCircle',
-  },
 };
 
-function ScannerViewfinder({ scanning }: { scanning: boolean }) {
+function detectMaterial(text: string): MaterialInfo | null {
+  const clean = text.toUpperCase().replace(/\s+/g, ' ');
+
+  // Search by numeric code (e.g. "01", "1", "05", "5")
+  const numMatch = clean.match(/\b0?([1-7]|[2-7][0-9]|[4][0-1]|[6][0]|[7][0-2])\b/);
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10);
+    const found = MATERIALS.find((m) => m.code === num);
+    if (found) return found;
+  }
+
+  // Search by material code abbreviation
+  const codeMap: Record<string, number> = {
+    'PETE': 1, 'PET': 1,
+    'PE-HD': 2, 'HDPE': 2,
+    'PVC': 3,
+    'PE-LD': 4, 'LDPE': 4,
+    'PP': 5,
+    'PS': 6,
+    'OTHER': 7,
+    'C/PAP': 20, 'PAP': 21,
+    'ALU': 41, 'ALUM': 41,
+    'GL': 70,
+    'TEX': 60,
+    'FE': 40,
+  };
+
+  for (const [abbr, code] of Object.entries(codeMap)) {
+    if (clean.includes(abbr)) {
+      const found = MATERIALS.find((m) => m.code === code);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function ScannerViewfinder({ loading }: { loading: boolean }) {
   return (
     <div className="relative w-64 h-64 mx-auto">
       <div className="absolute inset-0 rounded-2xl overflow-hidden">
-        <div className="w-full h-full bg-black/10" />
+        <div className="w-full h-full bg-black/5" />
       </div>
-      {/* Animated corners */}
-      <div
-        className={`absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-primary rounded-tl-lg transition-all ${scanning ? 'animate-pulse' : ''}`}
-      />
-      <div
-        className={`absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-primary rounded-tr-lg transition-all ${scanning ? 'animate-pulse' : ''}`}
-      />
-      <div
-        className={`absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-primary rounded-bl-lg transition-all ${scanning ? 'animate-pulse' : ''}`}
-      />
-      <div
-        className={`absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-primary rounded-br-lg transition-all ${scanning ? 'animate-pulse' : ''}`}
-      />
-      {/* Center icon */}
+      <div className={`absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-primary rounded-tl-lg ${loading ? 'animate-pulse' : ''}`} />
+      <div className={`absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-primary rounded-tr-lg ${loading ? 'animate-pulse' : ''}`} />
+      <div className={`absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-primary rounded-bl-lg ${loading ? 'animate-pulse' : ''}`} />
+      <div className={`absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-primary rounded-br-lg ${loading ? 'animate-pulse' : ''}`} />
       <div className="absolute inset-0 flex items-center justify-center">
-        {scanning ? (
+        {loading ? (
           <div className="flex flex-col items-center gap-2">
             <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-            <span className="text-xs text-primary font-medium">Анализирую...</span>
+            <span className="text-xs text-primary font-medium">Распознаю...</span>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 opacity-50">
+          <div className="flex flex-col items-center gap-2 opacity-40">
             <Icon name="ScanLine" size={40} className="text-primary" />
           </div>
         )}
       </div>
-      {/* Scan line animation */}
-      {scanning && (
+      {loading && (
         <div className="absolute left-2 right-2 top-1/2 h-0.5 bg-primary/60 animate-bounce" />
       )}
     </div>
@@ -101,30 +251,26 @@ function ScannerViewfinder({ scanning }: { scanning: boolean }) {
 }
 
 function ResultCard({
-  result,
+  material,
   onReset,
   onShowMap,
 }: {
-  result: ScanResult;
+  material: MaterialInfo | null;
   onReset: () => void;
   onShowMap: () => void;
 }) {
-  if (result.status === 'error') {
-    const errorIcons: Record<string, string> = {
-      dark: 'Sun',
-      blurry: 'Focus',
-      not_found: 'SearchX',
-    };
-    const icon = errorIcons[result.error_type || ''] || 'AlertCircle';
-
+  if (!material) {
     return (
-      <Card className="p-6 border-2 border-orange-200 bg-orange-50 animate-fade-in">
+      <Card className="p-6 border-2 border-orange-200 bg-orange-50">
         <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
-            <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={32} className="text-orange-500" />
+            <Icon name="SearchX" size={32} className="text-orange-500" />
           </div>
-          <h3 className="text-lg font-bold text-orange-800 mb-2">Не удалось распознать</h3>
-          <p className="text-orange-700 text-sm leading-relaxed">{result.message}</p>
+          <h3 className="text-lg font-bold text-orange-800 mb-2">Маркировка не найдена</h3>
+          <p className="text-orange-700 text-sm leading-relaxed">
+            Не удалось распознать знак переработки. Попробуй сфотографировать ближе и чётче,
+            или найди цифру в треугольнике из стрелок.
+          </p>
         </div>
         <Button onClick={onReset} className="w-full gap-2">
           <Icon name="ScanLine" size={18} />
@@ -134,57 +280,25 @@ function ResultCard({
     );
   }
 
-  if (result.status === 'partial') {
-    return (
-      <Card className="p-6 border-2 border-amber-200 bg-amber-50 animate-fade-in">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-            <Icon name="HelpCircle" size={32} className="text-amber-500" />
-          </div>
-          <h3 className="text-lg font-bold text-amber-800 mb-2">
-            {result.found_symbol ? 'Символ найден, код не определён' : 'Не удалось определить'}
-          </h3>
-          <p className="text-amber-700 text-sm leading-relaxed">{result.message}</p>
-        </div>
-        <Button onClick={onReset} className="w-full gap-2">
-          <Icon name="ScanLine" size={18} />
-          Сканировать ещё
-        </Button>
-      </Card>
-    );
-  }
-
-  const verdict = result.verdict || 'trash';
-  const cfg = verdictConfig[verdict];
+  const cfg = verdictConfig[material.verdict];
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Header card */}
+    <div className="space-y-4">
       <Card className={`p-5 border-2 ${cfg.bg}`}>
         <div className="flex items-start gap-4">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${verdict === 'recyclable' ? 'bg-emerald-100' : verdict === 'textile' ? 'bg-blue-100' : verdict === 'special' ? 'bg-amber-100' : 'bg-gray-100'}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${material.verdict === 'recyclable' ? 'bg-emerald-100' : material.verdict === 'textile' ? 'bg-blue-100' : material.verdict === 'special' ? 'bg-amber-100' : 'bg-gray-100'}`}>
             <Icon name={cfg.icon as Parameters<typeof Icon>[0]['name']} size={28} className={cfg.color} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <Badge variant="secondary" className="text-xs font-mono font-bold">
-                {result.material_code} · {result.code}
-              </Badge>
-              {result.confidence === 'high' && (
-                <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
-                  уверенно
-                </Badge>
-              )}
-            </div>
-            <h3 className="font-bold text-foreground text-lg leading-tight">
-              {result.material_name}
-            </h3>
-            <p className="text-muted-foreground text-sm mt-1">{result.examples}</p>
+            <Badge variant="secondary" className="text-xs font-mono font-bold mb-1">
+              {material.material_code} · {material.code}
+            </Badge>
+            <h3 className="font-bold text-foreground text-lg leading-tight">{material.material_name}</h3>
+            <p className="text-muted-foreground text-sm mt-1">{material.examples}</p>
           </div>
         </div>
       </Card>
 
-      {/* Verdict card */}
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-3">
           <Icon name="Info" size={16} className="text-muted-foreground" />
@@ -194,20 +308,17 @@ function ResultCard({
           <Icon name={cfg.icon as Parameters<typeof Icon>[0]['name']} size={20} className={`${cfg.color} flex-shrink-0 mt-0.5`} />
           <div>
             <p className={`font-semibold ${cfg.color} mb-1`}>{cfg.label}</p>
-            <p className="text-sm text-foreground leading-relaxed">{result.instruction}</p>
+            <p className="text-sm text-foreground leading-relaxed">{material.instruction}</p>
           </div>
         </div>
-        {result.container && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Icon name="MapPin" size={14} />
-            <span>{result.container}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Icon name="MapPin" size={14} />
+          <span>{material.container}</span>
+        </div>
       </Card>
 
-      {/* Action buttons */}
       <div className="space-y-3">
-        {(verdict === 'recyclable' || verdict === 'textile') && (
+        {(material.verdict === 'recyclable' || material.verdict === 'textile') && (
           <Button className="w-full gap-2" size="lg" onClick={onShowMap}>
             <Icon name="Map" size={18} />
             Показать пункты приёма на карте
@@ -226,210 +337,190 @@ export default function EcoScanner() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<ScanStatus>('idle');
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [material, setMaterial] = useState<MaterialInfo | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
-  const scanImage = useCallback(async (file: File) => {
-    setStatus('loading');
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result as string;
-      setPreviewUrl(dataUrl);
-
-      const base64 = dataUrl.split(',')[1];
-      const mime = file.type || 'image/jpeg';
-
-      const response = await fetch(SCAN_LABEL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mime_type: mime }),
-      });
-
-      const data: ScanResult = await response.json();
-      setResult(data);
-      setStatus('result');
-    };
-
-    reader.readAsDataURL(file);
+  const handleReset = useCallback(() => {
+    setStatus('idle');
+    setMaterial(null);
+    setPreview(null);
+    setProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setStatus('scanning');
-      setTimeout(() => scanImage(file), 500);
-    }
-  };
-
-  const handleReset = () => {
-    setStatus('idle');
-    setResult(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleShowMap = () => {
+  const handleShowMap = useCallback(() => {
     navigate('/');
-  };
+  }, [navigate]);
+
+  const processImage = useCallback(async (file: File) => {
+    setStatus('loading');
+    setProgress(10);
+
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+
+    try {
+      const worker = await createWorker('eng', 1, {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            setProgress(Math.round(10 + m.progress * 80));
+          }
+        },
+      });
+
+      setProgress(30);
+      const { data } = await worker.recognize(url);
+      await worker.terminate();
+      setProgress(95);
+
+      const found = detectMaterial(data.text);
+      setMaterial(found);
+      setStatus(found ? 'result' : 'error');
+    } catch {
+      setStatus('error');
+      setMaterial(null);
+    } finally {
+      setProgress(100);
+      URL.revokeObjectURL(url);
+    }
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) processImage(file);
+    },
+    [processImage],
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-muted">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="gap-2 -ml-2">
-              <Icon name="ArrowLeft" size={18} />
-              Назад
-            </Button>
-            <div className="flex items-center gap-2 ml-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <Icon name="ScanLine" className="text-white" size={16} />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground leading-tight">Эко-сканер</h1>
-                <p className="text-xs text-muted-foreground">Распознавание маркировки</p>
-              </div>
-            </div>
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <Icon name="ArrowLeft" size={20} />
+          </Button>
+          <div>
+            <h1 className="font-bold text-lg leading-tight">Сканер маркировки</h1>
+            <p className="text-xs text-muted-foreground">Узнай, как утилизировать упаковку</p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-md">
+      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {/* Scanner area */}
         {status !== 'result' && (
-          <>
-            {/* Title */}
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Наведи камеру на значок
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Сканируй упаковку и узнай, как её утилизировать
-              </p>
-            </div>
+          <Card className="p-6">
+            <ScannerViewfinder loading={status === 'loading'} />
 
-            {/* Viewfinder */}
-            <div className="mb-6">
-              {previewUrl ? (
-                <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-4 border-primary/30">
-                  <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
-                  {status === 'loading' && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full border-4 border-white border-t-transparent animate-spin" />
-                    </div>
-                  )}
+            {status === 'loading' && (
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>Анализирую изображение...</span>
+                  <span>{progress}%</span>
                 </div>
-              ) : (
-                <ScannerViewfinder scanning={status === 'scanning'} />
-              )}
-            </div>
-
-            {/* Hint */}
-            <p className="text-center text-sm text-muted-foreground mb-8">
-              <Icon name="Info" size={14} className="inline mr-1 mb-0.5" />
-              Ищем петлю Мёбиуса и цифры
-            </p>
-
-            {/* Main CTA */}
-            <div className="flex flex-col items-center gap-4">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={status === 'loading' || status === 'scanning'}
-                className="w-20 h-20 rounded-full bg-primary hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/30 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Icon name="Camera" size={32} className="text-white" />
-              </button>
-              <span className="text-sm font-medium text-foreground">Сделать фото</span>
-              <p className="text-xs text-muted-foreground -mt-2">или выбрать из галереи</p>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-
-            {/* Tips */}
-            <div className="mt-10 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center mb-4">
-                Советы для лучшего распознавания
-              </p>
-              {[
-                { icon: 'Sun', text: 'Хорошее освещение — держи у окна или включи свет' },
-                { icon: 'ZoomIn', text: 'Фотографируй крупно — значок должен занимать весь кадр' },
-                { icon: 'RotateCcw', text: 'Маркировка обычно на дне или боку упаковки' },
-              ].map((tip) => (
-                <div key={tip.text} className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                    <Icon name={tip.icon as Parameters<typeof Icon>[0]['name']} size={14} className="text-primary" />
-                  </div>
-                  <span>{tip.text}</span>
+                <div className="w-full bg-muted rounded-full h-1.5">
+                  <div
+                    className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
-              ))}
-            </div>
-
-            {/* Codes reference */}
-            <Card className="mt-8 p-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Быстрый справочник кодов
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {[
-                  { code: '1 PET', desc: 'Бутылки', verdict: 'recyclable' },
-                  { code: '2 HDPE', desc: 'Флаконы', verdict: 'recyclable' },
-                  { code: '3 PVC', desc: 'Плёнка', verdict: 'special' },
-                  { code: '4 LDPE', desc: 'Пакеты', verdict: 'recyclable' },
-                  { code: '5 PP', desc: 'Контейнеры', verdict: 'recyclable' },
-                  { code: '6 PS', desc: 'Пенопласт', verdict: 'trash' },
-                  { code: '7 OTHER', desc: 'Другое', verdict: 'trash' },
-                  { code: '90 C/PAP', desc: 'Тетрапак', verdict: 'recyclable' },
-                ].map((item) => (
-                  <div key={item.code} className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${item.verdict === 'recyclable' ? 'bg-emerald-500' : item.verdict === 'special' ? 'bg-amber-500' : 'bg-gray-400'}`}
-                    />
-                    <span className="font-mono font-bold text-foreground">{item.code}</span>
-                    <span className="text-muted-foreground">{item.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </>
-        )}
-
-        {/* Result screen */}
-        {status === 'result' && result && (
-          <>
-            <div className="text-center mb-6">
-              {result.status === 'success' ? (
-                <>
-                  <Badge className="mb-3" variant="secondary">
-                    <Icon name="CheckCircle" size={12} className="mr-1" />
-                    Маркировка распознана
-                  </Badge>
-                  <h2 className="text-2xl font-bold text-foreground">
-                    Найдена маркировка: {result.material_code} · {result.code}
-                  </h2>
-                </>
-              ) : (
-                <h2 className="text-2xl font-bold text-foreground">Результат сканирования</h2>
-              )}
-            </div>
-
-            {previewUrl && (
-              <div className="w-32 h-32 rounded-2xl overflow-hidden mx-auto mb-6 border-4 border-muted">
-                <img src={previewUrl} alt="scanned" className="w-full h-full object-cover" />
               </div>
             )}
 
-            <ResultCard result={result} onReset={handleReset} onShowMap={handleShowMap} />
-          </>
+            {status === 'idle' && (
+              <div className="mt-6 space-y-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Сфотографируй знак переработки — треугольник из стрелок с цифрой
+                </p>
+                <Button
+                  className="w-full gap-2"
+                  size="lg"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Icon name="Camera" size={18} />
+                  Сфотографировать
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.removeAttribute('capture');
+                      fileInputRef.current.click();
+                    }
+                  }}
+                >
+                  <Icon name="Image" size={18} />
+                  Выбрать из галереи
+                </Button>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Preview */}
+        {preview && status === 'loading' && (
+          <div className="rounded-xl overflow-hidden border">
+            <img src={preview} alt="Фото упаковки" className="w-full object-cover max-h-48" />
+          </div>
+        )}
+
+        {/* Result */}
+        {(status === 'result' || status === 'error') && (
+          <ResultCard material={material} onReset={handleReset} onShowMap={handleShowMap} />
+        )}
+
+        {/* Manual lookup */}
+        {status === 'idle' && (
+          <div>
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Или выбери код вручную</p>
+            <div className="grid grid-cols-2 gap-2">
+              {MATERIALS.slice(0, 8).map((m) => (
+                <button
+                  key={m.code}
+                  onClick={() => {
+                    setMaterial(m);
+                    setStatus('result');
+                  }}
+                  className="flex items-center gap-2 p-3 rounded-xl border bg-white hover:bg-muted transition-colors text-left"
+                >
+                  <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold text-sm flex items-center justify-center flex-shrink-0">
+                    {m.code}
+                  </span>
+                  <span className="text-xs font-medium leading-tight text-foreground">
+                    {m.material_code}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Hint */}
+        {status === 'idle' && (
+          <Card className="p-4 bg-muted/50 border-dashed">
+            <div className="flex gap-3">
+              <Icon name="Lightbulb" size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Фотографируй маркировку при хорошем освещении, держи телефон ровно.
+                Лучше всего видны знаки на дне или боку упаковки.
+              </p>
+            </div>
+          </Card>
         )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
     </div>
   );
 }
