@@ -226,10 +226,11 @@ export default function MapWidget({ points }: MapWidgetProps) {
       {
         boundsAutoApply: true,
         wayPointVisible: false,
-        routeActiveStrokeWidth: 5,
+        routeActiveStrokeWidth: '5',
         routeActiveStrokeColor: '#047857',
-        routeStrokeWidth: 2,
+        routeStrokeWidth: '2',
         routeStrokeColor: '#6ee7b7',
+        routeActiveStrokeStyle: 'solid',
       }
     );
 
