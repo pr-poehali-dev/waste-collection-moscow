@@ -63,6 +63,7 @@ declare global {
 export default function MapWidget({ points }: MapWidgetProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<YMapsMap | null>(null);
+  const routeRef = useRef<unknown>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<typeof points[0] | null>(null);
   const [routeBuilt, setRouteBuilt] = useState(false);
@@ -211,11 +212,11 @@ export default function MapWidget({ points }: MapWidgetProps) {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    map.geoObjects.each((geoObject: YMapsGeoObject) => {
-      if (geoObject.geometry && geoObject.geometry.getType() === 'LineString') {
-        map.geoObjects.remove(geoObject);
-      }
-    });
+    // Remove previous route directly via ref
+    if (routeRef.current) {
+      map.geoObjects.remove(routeRef.current);
+      routeRef.current = null;
+    }
 
     const multiRoute = new window.ymaps.multiRouter.MultiRoute(
       {
@@ -225,11 +226,14 @@ export default function MapWidget({ points }: MapWidgetProps) {
       {
         boundsAutoApply: true,
         wayPointVisible: false,
-        routeActiveStrokeWidth: 6,
+        routeActiveStrokeWidth: 5,
         routeActiveStrokeColor: '#047857',
+        routeStrokeWidth: 2,
+        routeStrokeColor: '#6ee7b7',
       }
     );
 
+    routeRef.current = multiRoute;
     map.geoObjects.add(multiRoute);
     setRouteBuilt(true);
     setIsBuilding(false);
@@ -260,12 +264,10 @@ export default function MapWidget({ points }: MapWidgetProps) {
     // No geolocation — try to geocode the address input
     if (addressInput.trim()) {
       try {
-        window.ymaps.ready(async () => {
-          const result = await window.ymaps.geocode(addressInput.trim());
-          const coords = result.geoObjects.get(0).geometry.getCoordinates() as [number, number];
-          setUserLocation(coords);
-          buildRouteFromCoords(coords, dest);
-        });
+        const result = await window.ymaps.geocode(addressInput.trim());
+        const coords = result.geoObjects.get(0).geometry.getCoordinates() as [number, number];
+        setUserLocation(coords);
+        buildRouteFromCoords(coords, dest);
       } catch {
         setIsBuilding(false);
       }
@@ -289,19 +291,15 @@ export default function MapWidget({ points }: MapWidgetProps) {
   };
 
   const clearRoute = () => {
-    if (!mapInstanceRef.current) return;
-    window.ymaps.ready(() => {
-      const map = mapInstanceRef.current;
-      if (!map) return;
-      map.geoObjects.each((geoObject: YMapsGeoObject) => {
-        if (geoObject.geometry && geoObject.geometry.getType() === 'LineString') {
-          map.geoObjects.remove(geoObject);
-        }
-      });
-      setRouteBuilt(false);
-      setSelectedPoint(null);
-      setRouteInfo(null);
-    });
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (routeRef.current) {
+      map.geoObjects.remove(routeRef.current);
+      routeRef.current = null;
+    }
+    setRouteBuilt(false);
+    setSelectedPoint(null);
+    setRouteInfo(null);
   };
 
   return (
